@@ -21,7 +21,7 @@ REWRITELN="\033[A\r\033[K"
 
 ROOT_PATH=$(pwd)
 ENV_ID=""
-PYTHON_VERSION="3.9.10"
+PYTHON_VERSION="3.10.2"
 SERVER_BRANCH="main"
 CLIENT_BRANCH="main"
 MANAGER_BRANCH=""
@@ -355,7 +355,7 @@ install_script_deps() {
   case $DISTRO in
   Debian)
     $sudo apt-get update
-    $sudo apt-get install -y git jq gcc make
+    $sudo apt-get install -y git jq gcc make g++
     ;;
   RedHat)
     $sudo yum clean expire-cache  # next yum invocation will update package metadata cache
@@ -453,11 +453,11 @@ install_docker_compose() {
   show_info "Install docker-compose"
   case $DISTRO in
   Debian)
-    $sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    $sudo curl -L "https://github.com/docker/compose/releases/download/v2.2.3/docker-compose-$(uname -s | tr '[:upper:]' '[:lower:]' | sed -e 's/_.*//')-$(uname -m)" -o /usr/local/bin/docker-compose
     $sudo chmod +x /usr/local/bin/docker-compose
     ;;
   RedHat)
-    $sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    $sudo curl -L "https://github.com/docker/compose/releases/download/v2.2.3/docker-compose-$(uname -s | tr '[:upper:]' '[:lower:]' | sed -e 's/_.*//')-$(uname -m)" -o /usr/local/bin/docker-compose
     $sudo chmod +x /usr/local/bin/docker-compose
     ;;
   Darwin)
@@ -468,6 +468,21 @@ install_docker_compose() {
     exit 1
     ;;
   esac
+}
+
+set_brew_python_build_flags() {
+  local _prefix_openssl="$(brew --prefix openssl)"
+  local _prefix_sqlite3="$(brew --prefix sqlite3)"
+  local _prefix_readline="$(brew --prefix readline)"
+  local _prefix_zlib="$(brew --prefix zlib)"
+  local _prefix_gdbm="$(brew --prefix gdbm)"
+  local _prefix_tcltk="$(brew --prefix tcl-tk)"
+  local _prefix_xz="$(brew --prefix xz)"
+  local _prefix_snappy="$(brew --prefix snappy)"
+  local _prefix_libffi="$(brew --prefix libffi)"
+  local _prefix_protobuf="$(brew --prefix protobuf)"
+  export CFLAGS="-I${_prefix_openssl}/include -I${_prefix_sqlite3}/include -I${_prefix_readline}/include -I${_prefix_zlib}/include -I${_prefix_gdbm}/include -I${_prefix_tcltk}/include -I${_prefix_xz}/include -I${_prefix_snappy}/include -I${_prefix_libffi}/include -I${_prefix_protobuf}/include"
+  export LDFLAGS="-L${_prefix_openssl}/lib -L${_prefix_sqlite3}/lib -L${_prefix_readline}/lib -L${_prefix_zlib}/lib -L${_prefix_gdbm}/lib -L${_prefix_tcltk}/lib -L${_prefix_xz}/lib -L${_prefix_snappy}/lib -L${_prefix_libffi}/lib -L${_prefix_protobuf}/lib"
 }
 
 install_python() {
@@ -493,25 +508,6 @@ install_python() {
     fi
   else
     echo "${PYTHON_VERSION} is already installed."
-  fi
-  if [ "$DISTRO" = "Darwin" -a "$(uname -p)" = "arm" ]; then
-    # Currently there are not many packages that provides prebuilt binaries for M1 Macs.
-    # Let's configure necessary env-vars to build them locally via bdist_wheel.
-    echo "Configuring additional build flags for local wheel builds for macOS on Apple Silicon ..."
-    local _prefix_openssl="$(brew --prefix openssl)"
-    local _prefix_sqlite3="$(brew --prefix sqlite3)"
-    local _prefix_readline="$(brew --prefix readline)"
-    local _prefix_zlib="$(brew --prefix zlib)"
-    local _prefix_gdbm="$(brew --prefix gdbm)"
-    local _prefix_tcltk="$(brew --prefix tcl-tk)"
-    local _prefix_xz="$(brew --prefix xz)"
-    local _prefix_snappy="$(brew --prefix snappy)"
-    local _prefix_libffi="$(brew --prefix libffi)"
-    local _prefix_protobuf="$(brew --prefix protobuf)"
-    export CFLAGS="-I${_prefix_openssl}/include -I${_prefix_sqlite3}/include -I${_prefix_readline}/include -I${_prefix_zlib}/include -I${_prefix_gdbm}/include -I${_prefix_tcltk}/include -I${_prefix_xz}/include -I${_prefix_snappy}/include -I${_prefix_libffi}/include -I${_prefix_protobuf}/include"
-    export LDFLAGS="-L${_prefix_openssl}/lib -L${_prefix_sqlite3}/lib -L${_prefix_readline}/lib -L${_prefix_zlib}/lib -L${_prefix_gdbm}/lib -L${_prefix_tcltk}/lib -L${_prefix_xz}/lib -L${_prefix_snappy}/lib -L${_prefix_libffi}/lib -L${_prefix_protobuf}/lib"
-    export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
-    export GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1
   fi
 }
 
@@ -579,10 +575,6 @@ if [ "$DISTRO" = "Darwin" ]; then
     exit 1
   fi
   echo "${REWRITELN}validating Docker Desktop mount permissions: ok"
-
-  export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
-  export GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1
-  echo "set grpcio wheel build variables."
 fi
 
 # Install pyenv
@@ -657,6 +649,35 @@ fi
 show_info "Creating the install directory..."
 mkdir -p "${INSTALL_PATH}"
 cd "${INSTALL_PATH}"
+
+mkdir -p ./wheelhouse
+if [ "$DISTRO" = "Darwin" -a "$(uname -p)" = "arm" ]; then
+  show_info "Prebuild grpcio wheels for Apple Silicon..."
+  pyenv virtualenv "${PYTHON_VERSION}" tmp-grpcio-build
+  pyenv shell tmp-grpcio-build
+  if [ $(python -c 'import sys; print(1 if sys.version_info >= (3, 10) else 0)') -eq 0 ]; then
+    # ref: https://github.com/grpc/grpc/issues/25082
+    export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
+    export GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1
+    echo "Set grpcio wheel build variables."
+  else
+    unset GRPC_PYTHON_BUILD_SYSTEM_OPENSSL
+    unset GRPC_PYTHON_BUILD_SYSTEM_ZLIB
+    unset CFLAGS
+    unset LDFLAGS
+  fi
+  pip install -U -q pip setuptools wheel
+  # ref: https://github.com/grpc/grpc/issues/28387
+  pip wheel -w ./wheelhouse --no-binary :all: grpcio grpcio-tools
+  pyenv shell --unset
+  pyenv uninstall -f tmp-grpcio-build
+  echo "List of prebuilt wheels:"
+  ls -l ./wheelhouse
+  # Currently there are not many packages that provides prebuilt binaries for M1 Macs.
+  # Let's configure necessary env-vars to build them locally via bdist_wheel.
+  echo "Configuring additional build flags for local wheel builds for macOS on Apple Silicon ..."
+  set_brew_python_build_flags
+fi
 
 # Install postgresql, etcd packages via docker
 show_info "Launching the docker compose \"halfstack\"..."
@@ -747,27 +768,29 @@ cd "${INSTALL_PATH}/manager"
 pyenv local "venv-${ENV_ID}-manager"
 pip install -U -q pip setuptools wheel
 check_snappy
+pip install -U --find-links=../wheelhouse -e ../common -r requirements/dev.txt
 if [ -z "$SERVER_BRANCH" ] || [ $SERVER_BRANCH = "" ]; then
   if [ "$MANAGER_BRANCH"!="main" ]; then
-    pip install -U -e ../manager-${MANAGER_BRANCH}-common -r requirements/dev.txt
+    pip install -U --find-links=../wheelhouse -e ../manager-${MANAGER_BRANCH}-common -r requirements/dev.txt
   else
-    pip install -U -e ../common -r requirements/dev.txt
+    pip install -U --find-links=../wheelhouse -e ../common -r requirements/dev.txt
   fi
 else
-  pip install -U -e ../common -r requirements/dev.txt
+  pip install -U --find-links=../wheelhouse -e ../common -r requirements/dev.txt
 fi
 
 cd "${INSTALL_PATH}/agent"
 pyenv local "venv-${ENV_ID}-agent"
 pip install -U -q pip setuptools wheel
+pip install -U --find-links=../wheelhouse -e ../common -r requirements/dev.txt
 if [ -z "$SERVER_BRANCH" ] || [ $SERVER_BRANCH = "" ]; then
   if [ "$AGENT_BRANCH"!="main" ]; then
-    pip install -U -e ../agent-${AGENT_BRANCH}-common -r requirements/dev.txt
+    pip install -U --find-links=../wheelhouse -e ../agent-${AGENT_BRANCH}-common -r requirements/dev.txt
   else
-    pip install -U -e ../common -r requirements/dev.txt
+    pip install -U --find-links=../wheelhouse -e ../common -r requirements/dev.txt
   fi
 else
-  pip install -U -e ../common -r requirements/dev.txt
+  pip install -U --find-links=../wheelhouse -e ../common -r requirements/dev.txt
 fi
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
   $sudo setcap cap_sys_ptrace,cap_sys_admin,cap_dac_override+eip $(readlinkf $(pyenv which python))
@@ -783,40 +806,40 @@ if [ -z "$SERVER_BRANCH" ] || [ $SERVER_BRANCH = "" ]; then
     cd "${INSTALL_PATH}/manager-${MANAGER_BRANCH}-common"
     pyenv local "venv-${ENV_ID}-manager-${MANAGER_BRANCH}-common"
     pip install -U -q pip setuptools wheel
-    pip install -U -r requirements/dev.txt
+    pip install -U --find-links=../wheelhouse -r requirements/dev.txt
   else
     cd "${INSTALL_PATH}/common"
     pyenv local "venv-${ENV_ID}-common"
     pip install -U -q pip setuptools wheel
-    pip install -U -r requirements/dev.txt
+    pip install -U --find-links=../wheelhouse -r requirements/dev.txt
   fi
   if [ "$AGENT_BRANCH"!="main" ]; then
     cd "${INSTALL_PATH}/agent-${AGENT_BRANCH}-common"
     pyenv local "venv-${ENV_ID}-agent-${AGENT_BRANCH}-common"
     pip install -U -q pip setuptools wheel
-    pip install -U -r requirements/dev.txt
+    pip install -U --find-links=../wheelhouse -r requirements/dev.txt
   else
     cd "${INSTALL_PATH}/common"
     pyenv local "venv-${ENV_ID}-common"
     pip install -U -q pip setuptools wheel
-    pip install -U -r requirements/dev.txt
+    pip install -U --find-links=../wheelhouse -r requirements/dev.txt
   fi
   if [ "$STORAGE_BRANCH"!="main" ]; then
     cd "${INSTALL_PATH}/storage-${STORAGE_BRANCH}-common"
     pyenv local "venv-${ENV_ID}-storage-proxy-${STORAGE_BRANCH}-common"
     pip install -U -q pip setuptools wheel
-    pip install -U -r requirements/dev.txt
+    pip install -U --find-links=../wheelhouse -r requirements/dev.txt
   else
     cd "${INSTALL_PATH}/common"
     pyenv local "venv-${ENV_ID}-common"
     pip install -U -q pip setuptools wheel
-    pip install -U -r requirements/dev.txt
+    pip install -U --find-links=../wheelhouse -r requirements/dev.txt
   fi
 else
   cd "${INSTALL_PATH}/common"
   pyenv local "venv-${ENV_ID}-common"
   pip install -U -q pip setuptools wheel
-  pip install -U -r requirements/dev.txt
+  pip install -U --find-links=../wheelhouse -r requirements/dev.txt
 fi
 
 cd "${INSTALL_PATH}/storage-proxy"
@@ -824,12 +847,12 @@ pyenv local "venv-${ENV_ID}-storage-proxy"
 pip install -U -q pip setuptools wheel
 if [ -z "$SERVER_BRANCH" ] || [ $SERVER_BRANCH = "" ]; then
   if [ "$STORAGE_BRANCH"!="main" ]; then
-    pip install -U -e ../storage-${STORAGE_BRANCH}-common -r requirements/dev.txt
+    pip install -U  --find-links=../wheelhouse -e ../storage-${STORAGE_BRANCH}-common -r requirements/dev.txt
   else
-    pip install -U -e ../common -r requirements/dev.txt
+    pip install -U  --find-links=../wheelhouse -e ../common -r requirements/dev.txt
   fi
 else
-  pip install -U -e ../common -r requirements/dev.txt
+  pip install -U  --find-links=../wheelhouse -e ../common -r requirements/dev.txt
 fi
 if [ -z "$SERVER_BRANCH" ] || [ $SERVER_BRANCH = "" ]; then
 
@@ -837,24 +860,24 @@ if [ -z "$SERVER_BRANCH" ] || [ $SERVER_BRANCH = "" ]; then
     cd "${INSTALL_PATH}/client-py-${WEBSERVER_BRANCH}-webserver"
     pyenv local "venv-${ENV_ID}-webserver"
     pip install -U -q pip setuptools wheel
-    pip install -U -e ../client-py -r requirements/dev.txt
+    pip install -U  --find-links=../wheelhouse -e ../client-py -r requirements/dev.txt
   else
     cd "${INSTALL_PATH}/webserver"
     pyenv local "venv-${ENV_ID}-webserver"
     pip install -U -q pip setuptools wheel
-    pip install -U -e ../client-py -r requirements/dev.txt
+    pip install -U  --find-links=../wheelhouse -e ../client-py -r requirements/dev.txt
   fi
 else 
   cd "${INSTALL_PATH}/webserver"
   pyenv local "venv-${ENV_ID}-webserver"
   pip install -U -q pip setuptools wheel
-  pip install -U -e ../client-py -r requirements/dev.txt
+  pip install -U  --find-links=../wheelhouse -e ../client-py -r requirements/dev.txt
 fi
 
 cd "${INSTALL_PATH}/tester"
 pyenv local "venv-${ENV_ID}-tester"
 pip install -U -q pip setuptools wheel
-pip install -U -r requirements/dev.txt
+pip install -U --find-links=../wheelhouse -r requirements/dev.txt
 
 # Copy default configurations
 show_info "Copy default configuration files to manager / agent root..."
@@ -909,21 +932,32 @@ pyenv local "venv-${ENV_ID}-tester"
 cp sample-env-tester.sh ./env-tester-admin.sh
 cp sample-env-tester.sh ./env-tester-user.sh
 
-# Docker registry setup
-show_info "Configuring the Lablup's official Docker registry..."
-cd "${INSTALL_PATH}/manager"
-python -m ai.backend.manager.cli etcd put config/docker/registry/cr.backend.ai "https://cr.backend.ai"
-python -m ai.backend.manager.cli etcd put config/docker/registry/cr.backend.ai/type "harbor2"
-python -m ai.backend.manager.cli etcd put config/docker/registry/cr.backend.ai/project "stable,community"
-python -m ai.backend.manager.cli etcd rescan-images cr.backend.ai
-python -m ai.backend.manager.cli etcd alias python "cr.backend.ai/stable/python:3.9-ubuntu20.04"
-
 # DB schema
 show_info "Setting up databases..."
 cd "${INSTALL_PATH}/manager"
 python -m ai.backend.manager.cli schema oneshot
 python -m ai.backend.manager.cli fixture populate fixtures/example-keypairs.json
 python -m ai.backend.manager.cli fixture populate fixtures/example-resource-presets.json
+
+# Docker registry setup
+show_info "Configuring the Lablup's official image registry..."
+cd "${INSTALL_PATH}/manager"
+python -m ai.backend.manager.cli etcd put config/docker/registry/cr.backend.ai "https://cr.backend.ai"
+python -m ai.backend.manager.cli etcd put config/docker/registry/cr.backend.ai/type "harbor2"
+if [ "$(uname -p)" = "arm" ]; then
+  python -m ai.backend.manager.cli etcd put config/docker/registry/cr.backend.ai/project "stable,community,multiarch"
+else
+  python -m ai.backend.manager.cli etcd put config/docker/registry/cr.backend.ai/project "stable,community"
+fi
+
+# Scan the container image registry
+show_info "Scanning the image registry..."
+python -m ai.backend.manager.cli etcd rescan-images cr.backend.ai
+if [ "$(uname -p)" = "arm" ]; then
+  python -m ai.backend.manager.cli etcd alias python "cr.backend.ai/multiarch/python:3.9-ubuntu20.04" aarch64
+else
+  python -m ai.backend.manager.cli etcd alias python "cr.backend.ai/stable/python:3.9-ubuntu20.04" x86_64
+fi
 
 # Virtual folder setup
 show_info "Setting up virtual folder..."

@@ -124,6 +124,7 @@ if [ $REMOVE_VENVS -eq 1 ]; then
       echo "delete python virtual environment: ${i}"
       pyenv uninstall -f "${i}"
     done
+  pyenv uninstall -f "tmp-grpcio-build"
 else
   echo "Skipped removal of Python virtual environments."
 fi
@@ -148,6 +149,8 @@ if [ $REMOVE_SOURCE -eq 1 ]; then
   $sudo rm -rf "${INSTALL_PATH}/backend.ai"
   $sudo rm -rf "${INSTALL_PATH}/vfolder"
   $sudo rm -rf "${INSTALL_PATH}/accel-cuda"
+  $sudo rm -rf "${INSTALL_PATH}/tester"
+  $sudo rm -rf "${INSTALL_PATH}/wheelhouse"
   echo "Please remove ${INSTALL_PATH} by yourself."
 else
   echo "Skipped removal of cloned source files."
