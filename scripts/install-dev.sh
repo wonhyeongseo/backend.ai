@@ -515,27 +515,9 @@ set -e
 # Make directories
 show_info "Using the current working-copy directory as the installation path..."
 
-mkdir -p ./wheelhouse
 if [ "$DISTRO" = "Darwin" -a "$(uname -p)" = "arm" ]; then
-  show_info "Prebuild grpcio wheels for Apple Silicon..."
-  pyenv virtualenv "${PYTHON_VERSION}" tmp-grpcio-build
-  pyenv shell tmp-grpcio-build
-  if [ $(python -c 'import sys; print(1 if sys.version_info >= (3, 10) else 0)') -eq 0 ]; then
-    # ref: https://github.com/grpc/grpc/issues/25082
-    export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
-    export GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1
-    echo "Set grpcio wheel build variables."
-  else
-    unset GRPC_PYTHON_BUILD_SYSTEM_OPENSSL
-    unset GRPC_PYTHON_BUILD_SYSTEM_ZLIB
-    unset CFLAGS
-    unset LDFLAGS
-  fi
-  pip install -U -q pip setuptools wheel
+  # FIXME: Remove this after upstream issue about wheel packaging is fixed
   # ref: https://github.com/grpc/grpc/issues/28387
-  pip wheel -w ./wheelhouse --no-binary :all: grpcio grpcio-tools
-  pyenv shell --unset
-  pyenv uninstall -f tmp-grpcio-build
   echo "List of prebuilt wheels:"
   ls -l ./wheelhouse
   # Currently there are not many packages that provides prebuilt binaries for M1 Macs.

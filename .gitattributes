@@ -64,3 +64,5 @@ src/ai/backend/runner/libbaihook.ubuntu20.04.aarch64.so filter=lfs diff=lfs merg
 src/ai/backend/runner/libbaihook.ubuntu20.04.x86_64.so filter=lfs diff=lfs merge=lfs -text
 src/ai/backend/runner/roboto-italic.ttf filter=lfs diff=lfs merge=lfs -text
 src/ai/backend/runner/roboto.ttf filter=lfs diff=lfs merge=lfs -text
+wheelhouse/grpcio_tools-1.46.3-cp310-cp310-macosx_12_0_arm64.whl filter=lfs diff=lfs merge=lfs -text
+wheelhouse/grpcio-1.46.3-cp310-cp310-macosx_12_0_arm64.whl filter=lfs diff=lfs merge=lfs -text
