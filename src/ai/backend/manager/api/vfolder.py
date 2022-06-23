@@ -1592,22 +1592,30 @@ async def unshare(request: web.Request, params: Any) -> web.Response:
 
 @auth_required
 @server_status_required(ALL_ALLOWED)
-async def delete(request: web.Request) -> web.Response:
+@check_api_params(
+    t.Dict({
+        t.Key('host'): t.String,
+    }),
+)
+async def delete(request: web.Request, params: Any) -> web.Response:
     root_ctx: RootContext = request.app['_root.context']
     folder_name = request.match_info['name']
+    folder_host = params['host']
     access_key = request['keypair']['access_key']
     domain_name = request['user']['domain_name']
     user_role = request['user']['role']
     user_uuid = request['user']['uuid']
     allowed_vfolder_types = await root_ctx.shared_config.get_vfolder_types()
-    log.info('VFOLDER.DELETE (ak:{}, vf:{})', access_key, folder_name)
+    log.info('VFOLDER.DELETE (ak:{}, vf:{}, vfh:{})', access_key, folder_name, folder_host)
     async with root_ctx.db.begin() as conn:
+        extra_vf_conds = [vfolders.c.host == folder_host]
         entries = await query_accessible_vfolders(
             conn,
             user_uuid,
             user_role=user_role,
             domain_name=domain_name,
             allowed_vfolder_types=allowed_vfolder_types,
+            extra_vf_conds=(sa.and_(*extra_vf_conds)),
         )
         for entry in entries:
             if entry['name'] == folder_name:
