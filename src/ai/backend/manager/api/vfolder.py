@@ -1316,7 +1316,6 @@ async def list_all_invitations(request: web.Request) -> web.Response:
     root_ctx: RootContext = request.app['_root.context']
     log.info('VFOLDER.LIST_ALL_INVITATIONS')
     async with root_ctx.db.begin() as conn:
-        invitations: Set[str] = set()
         j = sa.join(vfolders, vfolder_invitations,
                     vfolders.c.id == vfolder_invitations.c.vfolder)
         query = (
