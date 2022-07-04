@@ -360,6 +360,13 @@ class VFolder(BaseFunction):
 
     @api_function
     @classmethod
+    async def list_all_invitations(cls):
+        rqst = Request('GET', '/folders/invitations/list-all')
+        async with rqst.fetch() as resp:
+            return await resp.json()    
+
+    @api_function
+    @classmethod
     async def accept_invitation(cls, inv_id: str):
         rqst = Request('POST', '/folders/invitations/accept')
         rqst.set_json({'inv_id': inv_id})

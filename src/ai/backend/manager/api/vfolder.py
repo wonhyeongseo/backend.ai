@@ -1311,6 +1311,38 @@ async def invitations(request: web.Request) -> web.Response:
 
 
 @auth_required
+@server_status_required(READ_ALLOWED)
+async def list_all_invitations(request: web.Request) -> web.Response:
+    root_ctx: RootContext = request.app['_root.context']
+    log.info('VFOLDER.LIST_ALL_INVITATIONS')
+    async with root_ctx.db.begin() as conn:
+        invitations: Set[str] = set()
+        j = sa.join(vfolders, vfolder_invitations,
+                    vfolders.c.id == vfolder_invitations.c.vfolder)
+        query = (
+            sa.select([vfolder_invitations, vfolders.c.name])
+            .select_from(j)
+        )
+        result = await conn.execute(query)
+        invitations = result.fetchall()
+    invs_info = []
+    for inv in invitations:
+        invs_info.append({
+            'id': str(inv.id),
+            'inviter': inv.inviter,
+            'invitee': inv.invitee,
+            'perm': inv.permission,
+            'state': inv.state,
+            'created_at': str(inv.created_at),
+            'modified_at': str(inv.modified_at),
+            'vfolder_id': str(inv.vfolder),
+            'vfolder_name': inv.name,
+        })
+    resp = {'invitations': invs_info}
+    return web.json_response(resp, status=200)
+
+
+@auth_required
 @server_status_required(ALL_ALLOWED)
 @check_api_params(
     t.Dict({
@@ -2394,6 +2426,7 @@ def create_app(default_cors_options):
     cors.add(add_route('GET',    r'/invitations/list_sent', list_sent_invitations))  # legacy underbar
     cors.add(add_route('POST',   r'/invitations/update/{inv_id}', update_invitation))
     cors.add(add_route('GET',    r'/invitations/list', invitations))
+    cors.add(add_route('GET',    r'/invitations/list-all', list_all_invitations))
     cors.add(add_route('POST',   r'/invitations/accept', accept_invitation))
     cors.add(add_route('DELETE', r'/invitations/delete', delete_invitation))
     cors.add(add_route('GET',    r'/_/shared', list_shared_vfolders))

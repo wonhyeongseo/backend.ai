@@ -85,6 +85,24 @@ def list_hosts():
 
 
 @vfolder.command()
+def list_all_invitations():
+    """
+    List all invitations.
+    (superadmin privilege required)
+    """
+    with Session() as session:
+        try:
+            resp = session.VFolder.list_all_invitations()
+            for invitation in resp['invitations']:
+                for k, v in invitation.items():
+                    print(' ', k, ':', v)
+                print()
+        except Exception as e:
+            print_error(e)
+            sys.exit(1)
+
+
+@vfolder.command()
 @click.argument('vfolder_host')
 def perf_metric(vfolder_host):
     """
