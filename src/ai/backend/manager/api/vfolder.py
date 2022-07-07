@@ -1310,7 +1310,7 @@ async def invitations(request: web.Request) -> web.Response:
     return web.json_response(resp, status=200)
 
 
-@auth_required
+@admin_required
 @server_status_required(READ_ALLOWED)
 async def list_all_invitations(request: web.Request) -> web.Response:
     root_ctx: RootContext = request.app['_root.context']
@@ -1321,6 +1321,7 @@ async def list_all_invitations(request: web.Request) -> web.Response:
         query = (
             sa.select([vfolder_invitations, vfolders.c.name])
             .select_from(j)
+            .where(vfolder_invitations.c.state == VFolderInvitationState.PENDING)
         )
         result = await conn.execute(query)
         invitations = result.fetchall()
