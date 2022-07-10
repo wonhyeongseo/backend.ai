@@ -9,13 +9,16 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from collections import defaultdict
-from datetime import timedelta
 import json
 import logging
 import secrets
 import textwrap
+import uuid
+import weakref
+from collections import defaultdict
+from datetime import timedelta
 from typing import (
+    TYPE_CHECKING,
     Any,
     AsyncIterator,
     DefaultDict,
@@ -23,32 +26,27 @@ from typing import (
     List,
     Mapping,
     MutableMapping,
-    TYPE_CHECKING,
     Tuple,
     Union,
 )
 from urllib.parse import urlparse
-import uuid
-import weakref
 
 import aiohttp
-import aiotools
-from aiohttp import web
 import aiohttp_cors
-from aiotools import apartial, adefer
+import aiotools
 import attr
+import grpc
 import trafaret as t
-import zmq, zmq.asyncio
+import zmq
+import zmq.asyncio
+from aiohttp import web
+from aiotools import adefer, apartial
 
-from ai.backend.common import redis, validators as tx
+from ai.backend.common import redis
+from ai.backend.common import validators as tx
 from ai.backend.common.events import KernelTerminatingEvent
 from ai.backend.common.logging import BraceStyleAdapter
-from ai.backend.common.types import (
-    AccessKey,
-    AgentId,
-    KernelId, SessionId,
-)
-
+from ai.backend.common.types import AccessKey, AgentId, KernelId, SessionId
 from ai.backend.manager.idle import AppStreamingStatus
 
 from ..defs import DEFAULT_ROLE
@@ -64,8 +62,9 @@ from .exceptions import (
 )
 from .manager import READ_ALLOWED, server_status_required
 from .types import CORSOptions, WebMiddleware
-from .utils import check_api_params, call_non_bursty
+from .utils import call_non_bursty, check_api_params
 from .wsproxy import TCPProxy
+
 if TYPE_CHECKING:
     from ..config import SharedConfig
     from .context import RootContext
@@ -628,9 +627,15 @@ async def stream_conn_tracker_gc(root_ctx: RootContext, app_ctx: PrivateContext)
     shared_config: SharedConfig = root_ctx.shared_config
     try:
         while True:
-            no_packet_timeout: timedelta = tx.TimeDuration().check(
-                await shared_config.etcd.get('config/idle/app-streaming-packet-timeout') or '5m',
-            )
+            try:
+                no_packet_timeout: timedelta = tx.TimeDuration().check(
+                    await shared_config.etcd.get('config/idle/app-streaming-packet-timeout') or '5m',
+                )
+            except grpc.aio.AioRpcError as e:
+                if e.code() == grpc.StatusCode.UNAVAILABLE:
+                    log.warn('stream_conn_tracker_gc(): error while connecting to Etcd server, retrying...')
+                else:
+                    raise e
             async with app_ctx.conn_tracker_lock:
                 now = await redis.execute(redis_live, lambda r: r.time())
                 now = now[0] + (now[1] / (10**6))
@@ -650,8 +655,10 @@ async def stream_conn_tracker_gc(root_ctx: RootContext, app_ctx: PrivateContext)
                         redis_live,
                         lambda r: r.zcount(conn_tracker_key, float('-inf'), float('+inf')),
                     )
-                    log.debug(f"conn_tracker: gc {session_id} "
-                              f"removed/remaining = {removed_count}/{remaining_count}")
+                    log.debug(
+                        f"conn_tracker: gc {session_id} "
+                        f"removed/remaining = {removed_count}/{remaining_count}",
+                    )
                     if prev_remaining_count > 0 and remaining_count == 0:
                         await root_ctx.idle_checker_host.update_app_streaming_status(
                             session_id,
