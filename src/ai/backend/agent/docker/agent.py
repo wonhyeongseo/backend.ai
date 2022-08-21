@@ -792,9 +792,12 @@ class DockerKernelCreationContext(AbstractKernelCreationContext[DockerKernel]):
                 n = await self.computers[dev_name].instance.get_docker_networks(device_alloc)
                 additional_network_names |= set(n)
 
+            container_inspect = await container.show()
+            attached_networks = set(container_inspect["NetworkSettings"]["Networks"].keys())
             for name in additional_network_names:
                 network = await docker.networks.get(name)
-                await network.connect({"Container": container._id})
+                if name not in attached_networks:
+                    await network.connect({"Container": container._id})
 
             ctnr_host_port_map: MutableMapping[int, int] = {}
             stdin_port = 0
