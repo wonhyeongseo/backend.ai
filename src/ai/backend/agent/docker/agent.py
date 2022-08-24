@@ -53,6 +53,7 @@ from ai.backend.common.types import (
     ImageRegistry,
     KernelCreationConfig,
     KernelId,
+    KernelLifecycleEvent,
     MountPermission,
     MountTypes,
     ResourceSlot,
@@ -1343,7 +1344,7 @@ class DockerAgent(AbstractAgent[DockerKernel, DockerKernelCreationContext]):
             await self.inject_container_lifecycle_event(
                 kernel_id,
                 LifecycleEvent.START,
-                "new-container-started",
+                KernelLifecycleEvent.NEW_CONTAINER_STARTED,
                 container_id=ContainerId(evdata["Actor"]["ID"]),
             )
 
@@ -1360,7 +1361,7 @@ class DockerAgent(AbstractAgent[DockerKernel, DockerKernelCreationContext]):
             await self.inject_container_lifecycle_event(
                 kernel_id,
                 LifecycleEvent.CLEAN,
-                reason or "self-terminated",
+                reason or KernelLifecycleEvent.SELF_TERMINATED,
                 container_id=ContainerId(evdata["Actor"]["ID"]),
                 exit_code=exit_code,
             )

@@ -31,7 +31,13 @@ from ai.backend.common.events import (
     SessionTerminatedEvent,
 )
 from ai.backend.common.logging import BraceStyleAdapter
-from ai.backend.common.types import AgentId, ClusterMode, ResourceSlot, aobject
+from ai.backend.common.types import (
+    AgentId,
+    ClusterMode,
+    KernelLifecycleEvent,
+    ResourceSlot,
+    aobject,
+)
 from ai.backend.manager.types import DistributedLockFactory
 from ai.backend.plugin.entrypoint import scan_entrypoints
 
@@ -283,7 +289,7 @@ class SchedulerDispatcher(aobject):
                             {
                                 "status": KernelStatus.CANCELLED,
                                 "status_changed": now,
-                                "status_info": "pending-timeout",
+                                "status_info": KernelLifecycleEvent.PENDING_TIMEOUT,
                                 "terminated_at": now,
                                 "status_history": sql_json_merge(
                                     kernels.c.status_history,
@@ -430,7 +436,7 @@ class SchedulerDispatcher(aobject):
                             kernels.update()
                             .values(
                                 {
-                                    "status_info": "predicate-checks-failed",
+                                    "status_info": KernelLifecycleEvent.PREDICATE_CHECKS_FAILED,
                                     "status_data": sql_json_increment(
                                         kernels.c.status_data,
                                         ("scheduler", "retries"),
@@ -599,7 +605,7 @@ class SchedulerDispatcher(aobject):
                         kernels.update()
                         .values(
                             {
-                                "status_info": "no-available-instances",
+                                "status_info": KernelLifecycleEvent.NO_AVAILABLE_INSTANCES,
                                 "status_data": sql_json_increment(
                                     kernels.c.status_data,
                                     ("scheduler", "retries"),
@@ -634,7 +640,7 @@ class SchedulerDispatcher(aobject):
                         kernels.update()
                         .values(
                             {
-                                "status_info": "scheduler-error",
+                                "status_info": KernelLifecycleEvent.SCHEDULER_ERROR,
                                 "status_data": exc_data,
                             }
                         )
@@ -656,7 +662,7 @@ class SchedulerDispatcher(aobject):
                             "agent_addr": agent_alloc_ctx.agent_addr,
                             "scaling_group": sgroup_name,
                             "status": KernelStatus.SCHEDULED,
-                            "status_info": "scheduled",
+                            "status_info": KernelLifecycleEvent.SCHEDULED,
                             "status_data": {},
                             "status_changed": now,
                             "status_history": sql_json_merge(
@@ -788,7 +794,7 @@ class SchedulerDispatcher(aobject):
                                 kernels.update()
                                 .values(
                                     {
-                                        "status_info": "no-available-instances",
+                                        "status_info": KernelLifecycleEvent.NO_AVAILABLE_INSTANCES,
                                         "status_data": sql_json_increment(
                                             kernels.c.status_data,
                                             ("scheduler", "retries"),
@@ -823,7 +829,7 @@ class SchedulerDispatcher(aobject):
                                 kernels.update()
                                 .values(
                                     {
-                                        "status_info": "scheduler-error",
+                                        "status_info": KernelLifecycleEvent.SCHEDULER_ERROR,
                                         "status_data": exc_data,
                                     }
                                 )
@@ -852,7 +858,7 @@ class SchedulerDispatcher(aobject):
                                 "agent_addr": binding.agent_alloc_ctx.agent_addr,
                                 "scaling_group": sgroup_name,
                                 "status": KernelStatus.SCHEDULED,
-                                "status_info": "scheduled",
+                                "status_info": KernelLifecycleEvent.SCHEDULED,
                                 "status_data": {},
                                 "status_changed": now,
                                 "status_history": sql_json_merge(
@@ -902,7 +908,7 @@ class SchedulerDispatcher(aobject):
                                 {
                                     "status": KernelStatus.PREPARING,
                                     "status_changed": now,
-                                    "status_info": "",
+                                    "status_info": KernelLifecycleEvent.EMPTY,
                                     "status_data": {},
                                     "status_history": sql_json_merge(
                                         kernels.c.status_history,
@@ -992,7 +998,7 @@ class SchedulerDispatcher(aobject):
                             {
                                 "status": KernelStatus.CANCELLED,
                                 "status_changed": now,
-                                "status_info": "failed-to-start",
+                                "status_info": KernelLifecycleEvent.FAILED_TO_START,
                                 "status_data": status_data,
                                 "terminated_at": now,
                                 "status_history": sql_json_merge(
@@ -1015,7 +1021,7 @@ class SchedulerDispatcher(aobject):
                     SessionCancelledEvent(
                         session.session_id,
                         session.session_creation_id,
-                        "failed-to-start",
+                        KernelLifecycleEvent.FAILED_TO_START,
                     ),
                 )
                 async with self.db.begin_readonly() as db_conn:

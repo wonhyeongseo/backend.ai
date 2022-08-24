@@ -16,6 +16,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Dict,
+    Final,
     List,
     Literal,
     Mapping,
@@ -860,3 +861,32 @@ class RedisConnectionInfo:
     async def close(self) -> None:
         if isinstance(self.client, Redis):
             await self.client.close()
+
+
+class KernelLifecycleEvent:  # FIXME(jskang): Any better name?
+    AGENT_TERMINATION: Final[str] = "agent-termination"
+    EMPTY: Final[str] = ""  # FIXME(jskang): Any better name for ""?
+    EXEC_TIMEOUT: Final[str] = "exec-timeout"
+    FAILED_TO_START: Final[str] = "failed-to-start"
+    FINISHED: Final[str] = "finished"
+    FORCE_TERMINATED: Final[str] = "force-terminated"
+    KILLED_BY_EVENT: Final[str] = "killed-by-event"
+    NEW_CONTAINER_STARTED: Final[str] = "new-container-started"
+    NO_AVAILABLE_INSTANCES: Final[str] = "no-available-instances"
+    PENDING_TIMEOUT: Final[str] = "pending-timeout"
+    PREDICATE_CHECKS_FAILED: Final[str] = "predicate-checks-failed"
+    RESTART_TIMEOUT: Final[str] = "restart-timeout"
+    RESTARTING: Final[str] = "restarting"
+    RESUMING_AGENT_OPERATION: Final[str] = "resuming-agent-operation"
+    SCHEDULED: Final[str] = "scheduled"
+    SCHEDULER_ERROR: Final[str] = "scheduler-error"
+    SELF_STARTED: Final[str] = "self-started"
+    SELF_TERMINATED: Final[str] = "self-terminated"
+    SHUTDOWN: Final[str] = "shutdown"
+    TASK_CANCELLED: Final[str] = "task-cancelled"
+    TASK_DONE: Final[str] = "task-done"
+    TASK_FAILED: Final[str] = "task-failed"
+    TASK_FINISHED: Final[str] = "task-finished"
+    TASK_TIMEOUT: Final[str] = "task-timeout"
+    TERMINATED_UNKNOWN_CONTAINER: Final[str] = "terminated-unknown-container"
+    USER_REQUESTED: Final[str] = "user-requested"

@@ -42,6 +42,7 @@ from ai.backend.common.types import (
     ImageRegistry,
     KernelCreationConfig,
     KernelId,
+    KernelLifecycleEvent,
     MountPermission,
     MountTypes,
     ResourceSlot,
@@ -948,8 +949,8 @@ class KubernetesAgent(
         core_api = kube_client.CoreV1Api()
         apps_api = kube_client.AppsV1Api()
 
-        async def force_cleanup(reason="self-terminated"):
-            await self.send_event("kernel_terminated", kernel_id, "self-terminated", None)
+        async def force_cleanup(reason=KernelLifecycleEvent.SELF_TERMINATED):
+            await self.send_event("kernel_terminated", kernel_id, reason, None)
 
         try:
             kernel = self.kernel_registry[kernel_id]

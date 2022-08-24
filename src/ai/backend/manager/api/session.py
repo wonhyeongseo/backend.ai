@@ -88,6 +88,7 @@ from ai.backend.common.types import (
     ClusterMode,
     KernelEnqueueingConfig,
     KernelId,
+    KernelLifecycleEvent,
     SessionTypes,
     check_typed_dict,
 )
@@ -1494,7 +1495,7 @@ async def handle_destroy_session(
             event.session_id,
         ),
         forced=False,
-        reason=event.reason or "killed-by-event",
+        reason=event.reason or KernelLifecycleEvent.KILLED_BY_EVENT,
     )
 
 
@@ -1605,7 +1606,7 @@ async def handle_batch_result(
             root_ctx.registry.get_session_by_session_id,
             event.session_id,
         ),
-        reason="task-finished",
+        reason=KernelLifecycleEvent.TASK_FINISHED,
     )
 
 

@@ -76,6 +76,7 @@ from ai.backend.common.types import (
     HardwareMetadata,
     KernelEnqueueingConfig,
     KernelId,
+    KernelLifecycleEvent,
     RedisConnectionInfo,
     ResourceSlot,
     SessionId,
@@ -1814,7 +1815,7 @@ class AgentRegistry:
                     rpc_coros.append(
                         rpc.call.destroy_kernel(
                             str(kernel["id"]),
-                            "failed-to-start",
+                            KernelLifecycleEvent.FAILED_TO_START,
                             suppress_events=True,
                         ),
                     )
@@ -1838,7 +1839,11 @@ class AgentRegistry:
         async with self.db.begin_readonly() as conn:
             session = await session_getter(db_connection=conn)
         if not reason:
-            reason = "force-terminated" if forced else "user-requested"
+            reason = (
+                KernelLifecycleEvent.FORCE_TERMINATED
+                if forced
+                else KernelLifecycleEvent.USER_REQUESTED
+            )
         hook_result = await self.hook_plugin_ctx.dispatch(
             "PRE_DESTROY_SESSION",
             (session["session_id"], session["session_name"], session["access_key"]),

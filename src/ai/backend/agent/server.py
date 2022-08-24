@@ -57,6 +57,7 @@ from ai.backend.common.types import (
     HostPortPair,
     KernelCreationConfig,
     KernelId,
+    KernelLifecycleEvent,
     SessionId,
     aobject,
 )
@@ -415,7 +416,7 @@ class AgentRPCServer(aobject):
         await self.agent.inject_container_lifecycle_event(
             KernelId(UUID(kernel_id)),
             LifecycleEvent.DESTROY,
-            reason or "user-requested",
+            reason or KernelLifecycleEvent.USER_REQUESTED,
             done_future=done,
             suppress_events=suppress_events,
         )
