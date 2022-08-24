@@ -37,7 +37,7 @@ from ai.backend.common.asyncio import current_loop
 from ai.backend.common.docker import ImageRef
 from ai.backend.common.enum_extension import StringSetFlag
 from ai.backend.common.logging import BraceStyleAdapter
-from ai.backend.common.types import KernelId, aobject
+from ai.backend.common.types import ExecutionStatus, KernelId, aobject
 
 from .exception import UnsupportedBaseDistroError
 from .resources import KernelResourceSpec
@@ -714,19 +714,19 @@ class AbstractCodeRunner(aobject, metaclass=ABCMeta):
                     if rec.msg_type in outgoing_msg_types:
                         records.append(rec)
                     self.output_queue.task_done()
-                    if rec.msg_type == "finished":
+                    if rec.msg_type == ExecutionStatus.FINISHED:
                         data = json.loads(rec.data) if rec.data else {}
                         raise RunFinished(data)
-                    elif rec.msg_type == "clean-finished":
+                    elif rec.msg_type == ExecutionStatus.CLEAN_FINISHED:
                         data = json.loads(rec.data) if rec.data else {}
                         raise CleanFinished(data)
-                    elif rec.msg_type == "build-finished":
+                    elif rec.msg_type == ExecutionStatus.BUILD_FINISHED:
                         data = json.loads(rec.data) if rec.data else {}
                         raise BuildFinished(data)
-                    elif rec.msg_type == "waiting-input":
+                    elif rec.msg_type == ExecutionStatus.WAITING_INPUT:
                         opts = json.loads(rec.data) if rec.data else {}
                         raise InputRequestPending(opts)
-                    elif rec.msg_type == "exec-timeout":
+                    elif rec.msg_type == ExecutionStatus.EXEC_TIMEOUT:
                         raise ExecTimeout
         except asyncio.CancelledError:
             self.resume_output_queue()
@@ -905,11 +905,11 @@ class AbstractCodeRunner(aobject, metaclass=ABCMeta):
                         )
                 except asyncio.QueueFull:
                     pass
-                if msg_type == b"build-finished":
+                if msg_type == ExecutionStatus.BUILD_FINISHED.encode("ascii"):
                     # finalize incremental decoder
                     decoders[0].decode(b"", True)
                     decoders[1].decode(b"", True)
-                elif msg_type == b"finished":
+                elif msg_type == ExecutionStatus.FINISHED.encode("ascii"):
                     # finalize incremental decoder
                     decoders[0].decode(b"", True)
                     decoders[1].decode(b"", True)

@@ -31,6 +31,8 @@ from async_timeout import timeout
 from jupyter_client import KernelManager
 from jupyter_client.kernelspec import KernelSpecManager
 
+from ai.backend.common.types import ExecutionStatus
+
 from .compat import current_loop
 from .intrinsic import (
     init_sshd_service,
@@ -343,7 +345,9 @@ class BaseRunner(metaclass=ABCMeta):
                     "exitCode": ret,
                 }
             ).encode("utf8")
-            await self.outsock.send_multipart([b"build-finished", payload])
+            await self.outsock.send_multipart(
+                [ExecutionStatus.BUILD_FINISHED.encode("ascii"), payload]
+            )
 
     @abstractmethod
     async def build_heuristic(self) -> int:

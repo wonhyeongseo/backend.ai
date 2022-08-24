@@ -94,6 +94,7 @@ from ai.backend.common.types import (
     ContainerId,
     DeviceId,
     DeviceName,
+    ExecutionStatus,
     HardwareMetadata,
     ImageRegistry,
     KernelCreationConfig,
@@ -1330,7 +1331,7 @@ class AbstractAgent(
                     )
                     break
 
-                if result["status"] == KernelLifecycleEvent.FINISHED:
+                if result["status"] == ExecutionStatus.FINISHED:
                     if result["exitCode"] == 0:
                         await self.produce_event(
                             SessionSuccessEvent(
@@ -1346,7 +1347,7 @@ class AbstractAgent(
                             ),
                         )
                     break
-                if result["status"] == KernelLifecycleEvent.EXEC_TIMEOUT:
+                if result["status"] == ExecutionStatus.EXEC_TIMEOUT:
                     await self.produce_event(
                         SessionFailureEvent(
                             SessionId(kernel_id), KernelLifecycleEvent.TASK_TIMEOUT, -2
@@ -1872,20 +1873,20 @@ class AbstractAgent(
                 "(might be terminated--try it again)"
             ) from None
 
-        if result["status"] in (KernelLifecycleEvent.FINISHED, KernelLifecycleEvent.EXEC_TIMEOUT):
+        if result["status"] in (ExecutionStatus.FINISHED, ExecutionStatus.EXEC_TIMEOUT):
             log.debug("_execute({0}) {1}", kernel_id, result["status"])
-        if result["status"] == KernelLifecycleEvent.FINISHED:
+        if result["status"] == ExecutionStatus.FINISHED:
             await self.produce_event(
                 ExecutionFinishedEvent(SessionId(kernel_id)),
             )
-        elif result["status"] == KernelLifecycleEvent.EXEC_TIMEOUT:
+        elif result["status"] == ExecutionStatus.EXEC_TIMEOUT:
             await self.produce_event(
                 ExecutionTimeoutEvent(SessionId(kernel_id)),
             )
             await self.inject_container_lifecycle_event(
                 kernel_id,
                 LifecycleEvent.DESTROY,
-                reason=KernelLifecycleEvent.EXEC_TIMEOUT,
+                reason=ExecutionStatus.EXEC_TIMEOUT,
             )
         return {
             **result,

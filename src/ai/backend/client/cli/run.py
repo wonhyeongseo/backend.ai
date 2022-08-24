@@ -18,6 +18,7 @@ from tabulate import tabulate
 
 from ai.backend.cli.main import main
 from ai.backend.cli.types import ExitCode
+from ai.backend.common.types import ExecutionStatus
 
 from ..compat import asyncio_run, current_loop
 from ..config import local_cache_path
@@ -76,32 +77,32 @@ async def exec_loop(
                 for item in files:
                     print("{0}: {1}".format(item["name"], item["url"]), file=stdout)
                 print("--- end of generated files ---", file=stdout)
-            if result["status"] == "clean-finished":
+            if result["status"] == ExecutionStatus.CLEAN_FINISHED:
                 exitCode = result.get("exitCode")
                 msg = "Clean finished. (exit code = {0})".format(exitCode)
                 if is_multi:
                     print(msg, file=stderr)
                 vprint_done(msg)
-            elif result["status"] == "build-finished":
+            elif result["status"] == ExecutionStatus.BUILD_FINISHED:
                 exitCode = result.get("exitCode")
                 msg = "Build finished. (exit code = {0})".format(exitCode)
                 if is_multi:
                     print(msg, file=stderr)
                 vprint_done(msg)
-            elif result["status"] == "finished":
+            elif result["status"] == ExecutionStatus.FINISHED:
                 exitCode = result.get("exitCode")
                 msg = "Execution finished. (exit code = {0})".format(exitCode)
                 if is_multi:
                     print(msg, file=stderr)
                 vprint_done(msg)
                 break
-            elif result["status"] == "waiting-input":
+            elif result["status"] == ExecutionStatus.WAITING_INPUT:
                 if result["options"].get("is_password", False):
                     code = getpass.getpass()
                 else:
                     code = input()
                 await stream.send_str(code)
-            elif result["status"] == "continued":
+            elif result["status"] == ExecutionStatus.CONTINUED:
                 pass
 
 
@@ -133,27 +134,27 @@ def exec_loop_sync(
             for item in files:
                 print("{0}: {1}".format(item["name"], item["url"]), file=stdout)
             print("--- end of generated files ---", file=stdout)
-        if result["status"] == "clean-finished":
+        if result["status"] == ExecutionStatus.CLEAN_FINISHED:
             exitCode = result.get("exitCode")
             vprint_done("Clean finished. (exit code = {0}".format(exitCode), file=stdout)
             mode = "continue"
             code = ""
-        elif result["status"] == "build-finished":
+        elif result["status"] == ExecutionStatus.BUILD_FINISHED:
             exitCode = result.get("exitCode")
             vprint_done("Build finished. (exit code = {0})".format(exitCode), file=stdout)
             mode = "continue"
             code = ""
-        elif result["status"] == "finished":
+        elif result["status"] == ExecutionStatus.FINISHED:
             exitCode = result.get("exitCode")
             vprint_done("Execution finished. (exit code = {0})".format(exitCode), file=stdout)
             break
-        elif result["status"] == "waiting-input":
+        elif result["status"] == ExecutionStatus.WAITING_INPUT:
             mode = "input"
             if result["options"].get("is_password", False):
                 code = getpass.getpass()
             else:
                 code = input()
-        elif result["status"] == "continued":
+        elif result["status"] == ExecutionStatus.CONTINUED:
             mode = "continue"
             code = ""
 

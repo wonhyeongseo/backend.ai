@@ -866,9 +866,7 @@ class RedisConnectionInfo:
 class KernelLifecycleEvent:  # FIXME(jskang): Any better name?
     AGENT_TERMINATION: Final[str] = "agent-termination"
     EMPTY: Final[str] = ""  # FIXME(jskang): Any better name for ""?
-    EXEC_TIMEOUT: Final[str] = "exec-timeout"
     FAILED_TO_START: Final[str] = "failed-to-start"
-    FINISHED: Final[str] = "finished"
     FORCE_TERMINATED: Final[str] = "force-terminated"
     KILLED_BY_EVENT: Final[str] = "killed-by-event"
     NEW_CONTAINER_STARTED: Final[str] = "new-container-started"
@@ -890,3 +888,12 @@ class KernelLifecycleEvent:  # FIXME(jskang): Any better name?
     TASK_TIMEOUT: Final[str] = "task-timeout"
     TERMINATED_UNKNOWN_CONTAINER: Final[str] = "terminated-unknown-container"
     USER_REQUESTED: Final[str] = "user-requested"
+
+
+class ExecutionStatus:
+    BUILD_FINISHED: Final[str] = "build-finished"
+    CLEAN_FINISHED: Final[str] = "clean-finished"
+    CONTINUED: Final[str] = "continued"
+    EXEC_TIMEOUT: Final[str] = "exec-timeout"
+    FINISHED: Final[str] = "finished"
+    WAITING_INPUT: Final[str] = "waiting-input"
