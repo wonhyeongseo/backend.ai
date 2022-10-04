@@ -102,8 +102,7 @@ def vfolder_filter_by_status_required(perm: VFolderAccessStatus):
             user_role = request["user"]["role"]
             user_uuid = request["user"]["uuid"]
             allowed_vfolder_types = await root_ctx.shared_config.get_vfolder_types()
-            folder_name = request.match_info["name"]
-            vf_name_conds = vfolders.c.name == folder_name
+            folder_name = request.match_info.get("name")
             if perm == VFolderAccessStatus.READABLE:
                 # if READABLE access status is requested, all operation status is accepted.
                 vf_status_conds = vfolders.c.status.in_(
@@ -128,7 +127,9 @@ def vfolder_filter_by_status_required(perm: VFolderAccessStatus):
                     user_role=user_role,
                     domain_name=domain_name,
                     allowed_vfolder_types=allowed_vfolder_types,
-                    extra_vf_conds=(vf_name_conds & vf_status_conds),
+                    extra_vf_conds=vf_status_conds
+                    if folder_name is None
+                    else ((vfolders.c.name == folder_name) & vf_status_conds),
                 )
                 if len(entries) == 0:
                     raise VFolderFilterStatusFailed()
